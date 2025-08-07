@@ -26,122 +26,23 @@ require(lmerTest)
 
 
 
-#set the function to sort the files out - remove unneeded headers and sort out columns
-
-ParasiteData <- function(object, Testing_loc) {
-  # Remove the top rows and unneeded columns
-  object <- object[c(-1, -2, -3), c(1:4, 7:9, 11:38)]
-  
-  # Rename columns
-  colnames(object) <- c("ID", "Name", "Age", "Sex", "CCA_day1", "CCA_day2", "CCA_day3",
-                        "schAd1", "schBd1", "AscLumAd1", "AscLumBd1", "TTAd1", "TTBd1", 
-                        "HWAd1", "HWBd1", "otherd1", "schAd2", "schBd2", "AscLumAd2", "AscLumBd2", 
-                        "TTAd2", "TTBd2", "HWAd2", "HWBd2", "otherd2", "schAd3", "schBd3", 
-                        "AscLumAd3", "AscLumBd3", "TTAd3", "TTBd3", "HWAd3", "HWBd3", "otherd3", "Testing_loc")
-  
-  # Ensure ID is a character so it can join
-  object$ID <- as.character(object$ID)
-  
-  # Filter by Testing_loc
-  object <- dplyr::filter(object, Testing_loc == !!Testing_loc)
-  
-  return(object)
-}
-
 
 # load data ----
 
-TravelSurvey <- read.csv("Standard_travel_survey_20221606.csv")
+all_data <- read.csv("anon_Travel_survey_extra.csv")
 
-
-
-
-# Process bangaII
-bangaII <- read.csv("banga11.csv", na.strings = "NS")
-bangaII$Testing_loc <- "BANGA_II"
-#bangaII <- bangaII %>% relocate(Testing_loc, .after = 4)
-
-
-# Process naawa
-naawa <- read.csv("naawa_baseline.csv", na.strings = "NS")
-naawa$Testing_loc <- "NAAWA"
-#naawa <- naawa %>% relocate(Testing_loc, .after = 4)
-
-# Process namukuma
-namukuma <- read.csv("namukuma.csv", na.strings = "NS")
-namukuma$Testing_loc <- "NAMUKUMA"
-#namukuma <- namukuma %>% relocate(Testing_loc, .after = 4)
-
-# Process nanso
-nanso <- read.csv("nanso_baseline.csv", na.strings = "NS")
-nanso$Testing_loc <- "NANSO_A"
-nanso <- nanso %>% dplyr::select(-c(38, 39)) #remove two empty rows
-#nanso <- nanso %>% relocate(Testing_loc, .after = 4)
-
-# Process ssese
-ssese <- read.csv("ssese_baseline.csv", na.strings = "NS")
-ssese$Testing_loc <- "SSESE"
-#ssese <- ssese %>% relocate(Testing_loc, .after = 4)
-
-
-#use this function on our baseline docs
-
-bangaII <- ParasiteData(bangaII, "BANGA_II")
-naawa <- ParasiteData(naawa, "NAAWA")
-namukuma <- ParasiteData(namukuma, "NAMUKUMA")
-nanso <- ParasiteData(nanso, "NANSO_A")
-ssese <- ParasiteData(ssese, "SSESE")
-
-#put them all together
-base_data <- bind_rows(bangaII, naawa, namukuma, nanso, ssese)
-
-
-#add age groups and age categories
-all_data <- bind_rows(bangaII, naawa, namukuma, nanso, ssese)%>%
-  mutate(Age=as.numeric(Age), 
-         age_group = case_when(
-    Age > 85 ~ "over 85",
-    Age >=80 & Age <=85 ~ "81-85",
-    Age >=76 & Age <=80 ~ "76-80",
-    Age >=71 & Age <=75 ~ "71-75",
-    Age >=66 & Age <=70 ~ "66-70",
-    Age >=61 & Age <=65 ~ "61-65",
-    Age >=56 & Age <=60 ~ "56-60",
-    Age >=51 & Age <=55 ~ "51-55",
-    Age >=46 & Age <=50 ~ "46-50",
-    Age >=41 & Age <=45 ~ "41-45",
-    Age >=36 & Age <=40 ~ "36-40",
-    Age >=31 & Age <=35 ~ "31-35",
-    Age >=26 & Age <=30 ~ "26-30",
-    Age >=21 & Age <=25 ~ "21-25",
-    Age >=16 & Age <=20 ~ "16-20", 
-    Age >=11 & Age <=15 ~ "11-15",
-    Age >5  & Age <=10 ~ "06-10",
-    Age >0  & Age <=5 ~ "0-5", 
-  )
-) %>%
-  mutate(age_class = case_when(
-    Age <7 ~ "PSAC",
-    Age >6 & Age <16 ~ "SAC",
-    Age >15 ~ "Adult"))
-
-
-filter <- all_data %>%
-    dplyr::select(Age, age_group, age_class)
-
-all_data$Sex[which(all_data$Sex=="M (REPEATED)")] <- "M"
-
-#save.image(file='myEnvironment.RData')
+#correct the sex mistake
+all_data$Sex[which(all_data$Sex == "M (REPEATED)")] <- "M"
 
 # demographics ----
 all_data %>% 
   filter(Sex!="")%>%
   mutate(age_group = fct_relevel(age_group, 
-                                 "0-5", "06-10", "11-15", "16-20",
+                                 "0-5", "6-10", "11-15", "16-20",
                                  "21-25", "26-30", "31-35", "36-40",
                                  "41-45", "46-50", "51-55", "56-60",
                                  "61-65", "66-70", "71-75", "76-80", 
-                                 "81-85", "over 85"))%>%
+                                 "81-85"))%>%
   filter(!is.na(age_group))%>%
   ggplot()+
   geom_bar(aes(x=age_group, fill=Sex), position="dodge")+
@@ -184,14 +85,14 @@ prevalence %>%
   group_by(infection, Testing_loc, total_n) %>%  # Now group by infection status too
   summarise(n = n(), .groups = "drop") %>%  # Count infected/not infected
   mutate(freq = (n / total_n) * 100) %>%  # Compute true prevalence
-  filter(infection == "infected") %>%  # Keep only infected individuals
+  filter(infection == 1) %>%  # Keep only infected individuals
   ggplot() +
   geom_col(aes(y = freq, x = Testing_loc, fill = Testing_loc), position = "dodge", colour = "black") +  # Map fill to Testing_loc
   ylab("Prevalence (%)")+
   theme_bw() +
-  scale_fill_manual(values = c("BANGA_II" = "#663171FF", "NAAWA" = "#CF3A36FF", 
-                               "NAMUKUMA" = "#EA7428FF", "SSESE" = "#E2998AFF", 
-                               "NANSO_A" = "#0C7156FF")) + 
+  scale_fill_manual(values = c("B" = "#663171FF", "Nw" = "#CF3A36FF", 
+                               "Nam" = "#EA7428FF", "S" = "#E2998AFF", 
+                               "Nan" = "#0C7156FF")) + 
   theme(
     panel.background = element_rect(fill = "white", color = NA),
     plot.background = element_rect(fill = "white", color = NA),
@@ -233,9 +134,9 @@ prevalence %>%
   theme(axis.text.x = element_text(angle = 90),
         text = element_text(size = 16, face = "bold"), 
         legend.position = "none") +
-  scale_fill_manual(values = c("BANGA_II" = "#663171FF", "NAAWA" = "#CF3A36FF", 
-                               "NAMUKUMA" = "#EA7428FF", "SSESE" = "#E2998AFF", 
-                               "NANSO_A" = "#0C7156FF")) 
+  scale_fill_manual(values = c("B" = "#663171FF", "N" = "#CF3A36FF", 
+                               "Nam" = "#EA7428FF", "S" = "#E2998AFF", 
+                               "Nan" = "#0C7156FF")) 
 
 ggsave("PrevByAge.pdf")
 
@@ -275,9 +176,9 @@ prevalence %>%
   theme(
         text = element_text(size = 16, face = "bold"), 
         legend.position = "none") +
-  scale_fill_manual(values = c("BANGA_II" = "#663171FF", "NAAWA" = "#CF3A36FF", 
-                               "NAMUKUMA" = "#EA7428FF", "SSESE" = "#E2998AFF", 
-                               "NANSO_A" = "#0C7156FF")) 
+  scale_fill_manual(values = c("B" = "#663171FF", "N" = "#CF3A36FF", 
+                               "Nam" = "#EA7428FF", "S" = "#E2998AFF", 
+                               "Nan" = "#0C7156FF")) 
 
 
 ggsave("PrevByAgeClass.pdf")
@@ -296,12 +197,14 @@ prevalnceDF <-prevalence %>%
   group_by(infection, Testing_loc, total_n) %>%  # Now group by infection status too
   summarise(n = n(), .groups = "drop") %>%  # Count infected/not infected
   mutate(freq = (n / total_n) * 100) %>%  # Compute true prevalence
-  filter(infection == "infected")  # Keep only infected individuals
+  filter(infection == 1)  # Keep only infected individuals
+prevalnceDF
+
 
 #SAC
 prevalnceDFSAC2 <- prevalence %>%  
   filter(!is.na(infection)) %>%
-  filter(age_group %in% c("06-10", "11-15")) %>%  # Keep only 6-15 year olds
+  filter(age_group %in% c("6-10", "11-15")) %>%  # Keep only 6-15 year olds
   
   # Compute total sample size for ALL 6-15 year olds per Testing_loc
   group_by(Testing_loc) %>%
@@ -315,9 +218,9 @@ prevalnceDFSAC2 <- prevalence %>%
   mutate(freq = (n / total_n) * 100) %>%  
   
   # Keep only the "infected" category
-  filter(infection == "infected")
+  filter(infection == 1)
 
-
+prevalnceDFSAC2
 
 #Age groups
 prevalnceDF_AGE<-prevalence %>%
@@ -337,7 +240,9 @@ prevalnceDF_AGE<-prevalence %>%
   mutate(freq = (n / total_n) * 100) %>%
   
   # Keep only infected individuals
-  filter(infection == "infected")
+  filter(infection == 1)
+
+prevalnceDF_AGE
 
 ####KK only
 
@@ -350,11 +255,13 @@ prevalnceDF_KK <-prevalence %>%
   summarise(n = n(), .groups = "drop") %>%  # Count infected/not infected
   mutate(freq = (n / total_n) * 100) %>%  # Compute true prevalence
   filter(infectionKK == 1)  # Keep only infected individuals
+prevalnceDF_KK
+
 
 #SAC
 prevalnceDFSAC_KK <- prevalence %>%  
   filter(!is.na(infectionKK)) %>%
-  filter(age_group %in% c("06-10", "11-15")) %>%  # Keep only 6-15 year olds
+  filter(age_group %in% c("6-10", "11-15")) %>%  # Keep only 6-15 year olds
   
   # Compute total sample size for ALL 6-15 year olds per Testing_loc
   group_by(Testing_loc) %>%
@@ -370,6 +277,7 @@ prevalnceDFSAC_KK <- prevalence %>%
   # Keep only the "infected" category
   filter(infectionKK == 1)
 
+prevalnceDFSAC_KK
 
 
 #Age groups
@@ -392,6 +300,7 @@ prevalnceDF_AGE_KK<-prevalence %>%
   # Keep only infected individuals
   filter(infectionKK == 1)
 
+prevalnceDF_AGE_KK
 
 ####CCA only
 
@@ -405,10 +314,12 @@ prevalnceDF_CCA <-prevalence %>%
   mutate(freq = (n / total_n) * 100) %>%  # Compute true prevalence
   filter(infectionCCA == 1)  # Keep only infected individuals
 
+prevalnceDF_CCA
+
 #SAC
 prevalnceDFSAC2_CCA <- prevalence %>%  
   filter(!is.na(infectionCCA)) %>%
-  filter(age_group %in% c("06-10", "11-15")) %>%  # Keep only 6-15 year olds
+  filter(age_group %in% c("6-10", "11-15")) %>%  # Keep only 6-15 year olds
   
   # Compute total sample size for ALL 6-15 year olds per Testing_loc
   group_by(Testing_loc) %>%
@@ -424,7 +335,7 @@ prevalnceDFSAC2_CCA <- prevalence %>%
   # Keep only the "infected" category
   filter(infectionCCA == 1)
 
-
+prevalnceDFSAC2_CCA
 
 #Age groups CCA
 prevalnceDF_AGE_CCA<-prevalence %>%
@@ -446,12 +357,13 @@ prevalnceDF_AGE_CCA<-prevalence %>%
   # Keep only infected individuals
   filter(infectionCCA == 1)
 
+prevalnceDF_AGE_CCA
 
 #Rapid assesment results 
 
-rapid <- data.frame(Testing_loc = c(c("BANGA_II", "NAAWA",
-                                      "NAMUKUMA", "SSESE",
-                                      "NANSO_A")),
+rapid <- data.frame(Testing_loc = c(c("B", "N",
+                                      "Nam", "S",
+                                      "Nan")),
                     Prevalence = c(12, 36, 0, 20,0 ))
 
 
@@ -461,17 +373,17 @@ ggplot(rapid) +
   ylab("Prevalence (%)") + 
   theme(text = element_text(size = 16, face = "bold"), 
         legend.position = "none") +
-  scale_fill_manual(values = c("BANGA_II" = "#663171FF", "NAAWA" = "#CF3A36FF", 
-                               "NAMUKUMA" = "#EA7428FF", "SSESE" = "#E2998AFF", 
-                               "NANSO_A" = "#0C7156FF")) 
+  scale_fill_manual(values = c("B" = "#663171FF", "N" = "#CF3A36FF", 
+                               "Nam" = "#EA7428FF", "S" = "#E2998AFF", 
+                               "Nan" = "#0C7156FF")) 
 
 
 #Comparative KK only resulst in SAC from baseline
 
 
-KKbl <- data.frame(Testing_loc = c(c("BANGA_II", "NAAWA",
-                                      "NAMUKUMA", "SSESE",
-                                      "NANSO_A")),
+KKbl <- data.frame(Testing_loc = c(c("B", "N",
+                                      "Nam", "S",
+                                      "Nan")),
                     Prevalence = c(10.8, 8.5, 1.88, 19.75,6.66667 ))
 
 
@@ -481,9 +393,9 @@ ggplot(KKbl) +
   ylab("Prevalence (%)") + 
   theme(text = element_text(size = 16, face = "bold"), 
         legend.position = "none") +
-  scale_fill_manual(values = c("BANGA_II" = "#663171FF", "NAAWA" = "#CF3A36FF", 
-                               "NAMUKUMA" = "#EA7428FF", "SSESE" = "#E2998AFF", 
-                               "NANSO_A" = "#0C7156FF")) +
+  scale_fill_manual(values = c("B" = "#663171FF", "N" = "#CF3A36FF", 
+                               "Nam" = "#EA7428FF", "S" = "#E2998AFF", 
+                               "Nan" = "#0C7156FF")) +
   ylim(0,30)
 
 
