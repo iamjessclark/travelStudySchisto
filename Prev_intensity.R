@@ -316,7 +316,7 @@ ggplot(prevalnceSex) +
   ) +
   scale_fill_manual(values = c(
     "B" = "#663171FF",
-    "N" = "#CF3A36FF",
+    "Nw" = "#CF3A36FF",
     "Nam" = "#EA7428FF",
     "S" = "#E2998AFF",
     "Nan" = "#0C7156FF"
