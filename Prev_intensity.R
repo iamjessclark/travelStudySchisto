@@ -280,6 +280,49 @@ prevalnceDFSAC_KK <- prevalence %>%
 prevalnceDFSAC_KK
 
 
+#Sex
+prevalnceSex <- prevalence %>%  
+  filter(!is.na(infection)) %>%
+  
+  # Compute total sample size 
+  group_by(Sex, Testing_loc) %>%
+  mutate(total_n = n()) %>%
+  
+  # Count number of infected individuals per Sex
+  group_by(infection, Sex, total_n, Testing_loc) %>%  
+  summarise(n = n(), .groups = "drop") %>%
+  
+  # Compute prevalence correctly
+  mutate(freq = (n / total_n) * 100) %>%  
+  
+  # Keep only the "infected" category
+  filter(infection == 1)
+
+prevalnceSex
+
+# Plot
+ggplot(prevalnceSex) +
+  geom_col(
+    aes(x = Testing_loc, y = freq, fill = Testing_loc),
+    position = position_dodge(width = 0.8), colour = "black"
+  ) +
+  facet_wrap(~ Sex) +
+  theme_bw() +
+  ylab("Prevalence (%)") +
+  xlab("Testing location") +
+  theme(
+    text = element_text(size = 16, face = "bold"),
+    legend.position = "none"
+  ) +
+  scale_fill_manual(values = c(
+    "B" = "#663171FF",
+    "N" = "#CF3A36FF",
+    "Nam" = "#EA7428FF",
+    "S" = "#E2998AFF",
+    "Nan" = "#0C7156FF"
+  ))
+
+
 #Age groups
 prevalnceDF_AGE_KK<-prevalence %>%
   group_by(age_group, Testing_loc) %>%
