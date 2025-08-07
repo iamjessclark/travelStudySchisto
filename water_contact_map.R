@@ -42,7 +42,7 @@ center_lat <- mean(locations_clean$latitude, na.rm = TRUE)
 center_lon <- mean(locations_clean$longitude, na.rm = TRUE)
 
 # Register Google API key
-ggmap::register_google(key="AIzaSyDIQNJb--qC9r850FHGP7BsAG4XCTw6-3A")
+ggmap::register_google(key="")
 
 # Compute bounding box
 bbox <- make_bbox(lon = longitude, lat = latitude, data = locations_clean, f = 0.1)  # f = 0.1 adds a bit of padding
