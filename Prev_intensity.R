@@ -54,13 +54,16 @@ ggsave("demographics.pdf")
 selection <- quo(c(schAd1,schBd1, schAd2,schBd2,schAd3,schBd3))
 prevalence <-  all_data %>%
   dplyr::select("ID","CCA_day1", "CCA_day2", "CCA_day3", 
-         "schAd1","schBd1", "schAd2","schBd2","schAd3","schBd3", "Testing_loc", "age_group","age_class","Age", "Sex")%>%
+         "schAd1","schBd1", "schAd2","schBd2","schAd3","schBd3", "Testing_loc", "age_group","age_class","Age", "Sex", "travel_bin", "travel_frequency")%>%
   mutate(schAd1=as.numeric(schAd1), schBd1=as.numeric(schBd1),
          schAd2=as.numeric(schAd2), schBd2=as.numeric(schBd2), 
          schAd3=as.numeric(schAd3), schBd3=as.numeric(schBd3))%>%
   filter(Sex!="")%>%
   rowwise()%>%
-  mutate(mean_sm= mean(!!selection, na.rm=T))%>%
+  mutate(mean_sm= mean(!!selection, na.rm=T),
+         sd_sm = sd(!!selection, na.rm = T),
+         min_sm = min(!!selection, na.rm = T),
+         max_sm = max(!!selection, na.rm = T))%>%
   ungroup()%>%
   filter(!is.na(mean_sm))%>%
   mutate(infection=case_when(
@@ -442,4 +445,59 @@ ggplot(KKbl) +
   ylim(0,30)
 
 
-  
+#mean EPG in travellers vs no travelers
+
+Travel_EPG <- prevalence %>%
+  filter(mean_sm > 0) %>%
+  group_by(travel_bin) %>%
+  summarise(
+    mean_EPG = mean(mean_sm, na.rm = TRUE),
+    median_EPG = median(mean_sm, na.rm = TRUE),
+    IQR_EPG = IQR(mean_sm, na.rm = TRUE),
+    lower_quartile = quantile(mean_sm, 0.25, na.rm = TRUE),
+    upper_quartile = quantile(mean_sm, 0.75, na.rm = TRUE),
+    n = n()
+  )
+Travel_EPG
+
+#mean EPG in each village
+
+Village_EPG <- prevalence %>%
+  filter(mean_sm >0)%>%
+  group_by(Testing_loc) %>%
+  summarise(
+    mean_EPG = mean(mean_sm, na.rm = TRUE),
+    median_EPG = median(mean_sm, na.rm = TRUE),
+    sd = sd(mean_sm, na.rm = TRUE),
+    n = n()
+  )
+Village_EPG
+
+EPG_summary_table <- prevalence %>%
+  group_by(travel_frequency, age_class) %>%
+  summarise(
+    Number_of_participants = n(),
+    Infected_percent = round(mean(infection == 1, na.rm = TRUE) * 100, 1),
+    Mean_EPG_nonzero = round(mean(mean_sm[mean_sm > 0], na.rm = TRUE), 1),
+    Median_EPG_nonzero = round(median(mean_sm[mean_sm > 0], na.rm = TRUE), 1),
+   sd_EPG_nonzero = round(sd(mean_sm[mean_sm > 0], na.rm = TRUE), 1),
+    .groups = "drop"
+  )
+EPG_summary_table
+
+Lake_summary_table <- all_data %>%
+  group_by(travel_frequency, ActNEW) %>%
+  summarise(
+    n = n(),
+    Avg_duration_min = round(mean(DurMin, na.rm = TRUE), 0),
+    SD_duration_min = ifelse(sum(!is.na(DurMin)) > 1,
+                             round(sd(DurMin, na.rm = TRUE), 0),
+                             NA_real_),
+    .groups = "drop"
+  ) %>%
+  group_by(travel_frequency) %>%
+  mutate(Proportion_in_group = round(100 * n / sum(n), 0)) %>%
+  ungroup()
+
+
+Lake_summary_table
