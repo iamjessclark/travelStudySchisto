@@ -30,7 +30,7 @@ center_lat <- mean(locations$lattitude)
 center_lon <- mean(locations$longitude)
 
 # Register Google API key
-ggmap::register_google(key="")
+ggmap::register_google(key="AIzaSyDIQNJb--qC9r850FHGP7BsAG4XCTw6-3A")
 
 # Adjust the center of the map based on mean latitude and longitude
 uganda_map <- get_map(location = c(lon = center_lon, lat = center_lat), zoom = 11, maptype = "terrain")
