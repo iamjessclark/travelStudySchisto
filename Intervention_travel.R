@@ -12,7 +12,7 @@ data <-read.csv("Travel_prevEDIT.csv")
 nrow(data) #586
 
 # Ensure travel_frequency is numeric
-data$travel_frequency <- as.numeric(as.character(data$travel_frequency))
+data$travel_frequency <- as.factor(data$travel_frequency)
 
 # Set priors
 priors <- get_custom_prior("bernoulli")
@@ -30,32 +30,102 @@ model_observed <- brm(
 #2. Set up counterfactual data
 # daily travellers have zero travel and the downstream effects of this are also noted
 # anyone who hase treavl = zero must also have duration = 0 and activity = none
-cf_data_daily <- data %>%
-  mutate(
-    travel_frequency = if_else(travel_frequency == 92, 0, travel_frequency),
-    DurMin = if_else(travel_frequency == 0, 0, DurMin),
-    ActNEW = if_else(travel_frequency == 0, "None", ActNEW)
+
+# Index daily travellers once from the factual data
+daily_index <- which(data$travel_frequency == "92")
+
+# Build CF data by copying factual data
+cf_data_daily <- data
+
+# Set travel to "0" for original daily travellers, preserving factor levels
+tf_levels <- levels(data$travel_frequency)
+cf_data_daily$travel_frequency <- as.character(cf_data_daily$travel_frequency)
+cf_data_daily$travel_frequency[daily_index] <- "0"
+cf_data_daily$travel_frequency <- factor(cf_data_daily$travel_frequency, levels = tf_levels)
+
+# Set mediators consistently for daily travellers only
+cf_data_daily$DurMin[daily_index] <- 0
+cf_data_daily$ActNEW[daily_index] <- "None"
+# Ensure ActNEW also keeps the original factor levels if it’s a factor
+if (is.factor(data$ActNEW)) {
+  cf_data_daily$ActNEW <- factor(cf_data_daily$ActNEW, levels = levels(data$ActNEW))
+}
+
+
+
+# Population-wide infection probability per draw
+# factual
+obs_all_draws <- (posterior_epred(model_observed, 
+                                         newdata = data, 
+                                         re_formula = NA))
+# counterfactual
+cf_all_draws  <- (posterior_epred(model_observed, 
+                                         newdata = cf_data_daily, 
+                                         re_formula = NA))
+
+# Quick NA diagnostics (should be FALSE/0)
+any(is.na(obs_all_draws)); any(is.na(cf_all_draws))
+
+#mean of each draw
+obs_mean_all <- rowMeans(obs_all_draws)
+cf_mean_all  <- rowMeans(cf_all_draws)
+
+
+
+#populstion wide mean per draw and CrIs
+#
+obs_mean_all <- rowMeans(obs_all_draws)
+cf_mean_all  <- rowMeans(cf_all_draws)
+
+summ <- function(x) {
+  x <- as.numeric(x)
+  x <- x[is.finite(x)]                 # drop NA / NaN / Inf
+  c(
+    median = stats::median(x),
+    l95    = stats::quantile(x, 0.025, names = FALSE),
+    u95    = stats::quantile(x, 0.975, names = FALSE)
   )
+}
 
 
-# Population-wide mean infection probability per draw
-obs_mean_all <- rowMeans(posterior_epred(model_observed, newdata = data, re_formula = NA))
-cf_mean_all  <- rowMeans(posterior_epred(model_observed, newdata = cf_data_daily, re_formula = NA))
+pop_obs_summary  <- 100 * summ(obs_mean_all)
+pop_cf_summary   <- 100 * summ(cf_mean_all)
+pop_diff_summary <- 100 * summ(cf_mean_all - obs_mean_all)
 
-# Difference in percentage points
-diff_all <- cf_mean_all - obs_mean_all
-quantile(diff_all, probs = c(0.025, 0.5, 0.975))
 
-# ---- Daily travellers only ----
-daily_index <- which(data$travel_frequency == 92)
+#daily travellers only
+obs_daily_draws <- rowMeans(obs_all_draws[, daily_index, drop = FALSE])
+cf_daily_draws  <- rowMeans(cf_all_draws[,  daily_index, drop = FALSE])
 
-# Means within daily travellers group
-obs_mean_daily <- rowMeans(posterior_epred(model_observed, newdata = data[daily_index, ], re_formula = NA))
-cf_mean_daily  <- rowMeans(posterior_epred(model_observed, newdata = cf_data_daily[daily_index, ], re_formula = NA))
+daily_obs_summary  <- 100 * summ(obs_daily_draws)
+daily_cf_summary   <- 100 * summ(cf_daily_draws)
+daily_diff_summary <- 100 * summ(cf_daily_draws - obs_daily_draws)
 
-# Difference for daily travellers only
-diff_daily <- cf_mean_daily - obs_mean_daily
-quantile(diff_daily, probs = c(0.025, 0.5, 0.975))
+#put in table I can quote in text
+
+library(tibble)
+results_tbl <- tibble(
+  group      = rep(c("Whole population", "Daily travellers"), each = 3),
+  scenario   = rep(c("Observed", "Counterfactual", "Difference (CF−Obs)"), times = 2),
+  median_pct = c(pop_obs_summary["median"],  pop_cf_summary["median"],  pop_diff_summary["median"],
+                 daily_obs_summary["median"], daily_cf_summary["median"], daily_diff_summary["median"]),
+  l95_pct    = c(pop_obs_summary["l95"],     pop_cf_summary["l95"],     pop_diff_summary["l95"],
+                 daily_obs_summary["l95"],    daily_cf_summary["l95"],    daily_diff_summary["l95"]),
+  u95_pct    = c(pop_obs_summary["u95"],     pop_cf_summary["u95"],     pop_diff_summary["u95"],
+                 daily_obs_summary["u95"],    daily_cf_summary["u95"],    daily_diff_summary["u95"])
+)
+print(results_tbl)
+
+
+
+
+
+
+str(data$travel_frequency); str(cf_data_daily$travel_frequency)
+setdiff(levels(cf_data_daily$travel_frequency), levels(data$travel_frequency))
+sum(is.na(obs_all_draws)); sum(is.na(cf_all_draws))
+
+
 
 #make two graphs
 
