@@ -124,7 +124,7 @@ df_all <- tibble(
   type = rep(c("Observed", "Counterfactual"), each = length(obs_mean_all))
 )
 
-ggplot(df_all, aes(x = prob, fill = type)) +
+p_all3 <-ggplot(df_all, aes(x = prob, fill = type)) +
   geom_histogram(position = "identity", alpha = 0.6, bins = 30, colour = "black") +
   scale_fill_manual(values = c("Observed" = "#3B4BA3", "Counterfactual" = "#F4A261")) +
   labs(
@@ -140,7 +140,7 @@ df_subset <- tibble(
   type = rep(c("Observed", "Counterfactual"), each = length(obs_mean_all2))
 )
 
-ggplot(df_subset, aes(x = prob, fill = type)) +
+p_subset <- ggplot(df_subset, aes(x = prob, fill = type)) +
   geom_histogram(position = "identity", alpha = 0.6, bins = 30, colour = "black") +
   scale_fill_manual(values = c("Observed" = "#3B4BA3", "Counterfactual" = "#F4A261")) +
   labs(
@@ -151,9 +151,10 @@ ggplot(df_subset, aes(x = prob, fill = type)) +
   theme_minimal(base_size = 14)
 
 # Print the plots
-p_all
+p_all3
 p_subset
 
 
-
+ggsave("population_effect_duration.png", p_all3, width = 8, height = 6, dpi = 300)
+ggsave("subset_effect_duration.png", p_subset, width = 8, height = 6, dpi = 300)
 

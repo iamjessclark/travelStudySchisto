@@ -123,6 +123,9 @@ p_all
 p_occ
 
 
+ggsave("population_effect_act.png", p_all, width = 8, height = 6, dpi = 300)
+ggsave("subset_effect_act.png", p_occ, width = 8, height = 6, dpi = 300)
+
 ###worm buden and domestic
 ###
 filt <- data%>%
@@ -217,7 +220,7 @@ df_all <- tibble(
   type  = rep(c("Observed", "Counterfactual"), each = length(obs_mean_all))
 )
 
-p_all <- ggplot(df_all, aes(x = value, fill = type)) +
+p_all2 <- ggplot(df_all, aes(x = value, fill = type)) +
   geom_histogram(position = "identity", alpha = 0.6, bins = 30, colour = "black") +
   scale_fill_manual(values = c("Observed" = "#3B4BA3", "Counterfactual" = "#F4A261")) +
   labs(
@@ -245,5 +248,7 @@ p_dom <- ggplot(df_dom, aes(x = value, fill = type)) +
   theme_minimal(base_size = 14)+
   xlim(0,100)+ylim(0,1000)
 
-p_all
+p_all2
 p_dom
+ggsave("population_effect_EPG_act.png", p_all2, width = 8, height = 6, dpi = 300)
+ggsave("subset_effect_EPG_act.png", p_dom, width = 8, height = 6, dpi = 300)

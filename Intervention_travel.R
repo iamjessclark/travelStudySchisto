@@ -138,7 +138,7 @@ df_all <- tibble(
   type = rep(c("Observed", "Counterfactual"), each = length(obs_mean_all))
 )
 
-ggplot(df_all, aes(x = prob, fill = type)) +
+travel_all <- ggplot(df_all, aes(x = prob, fill = type)) +
   geom_histogram(position = "identity", alpha = 0.6, bins = 30, colour = "black") +
   scale_fill_manual(values = c("Observed" = "#3B4BA3", "Counterfactual" = "#F4A261")) +
   labs(
@@ -148,13 +148,15 @@ ggplot(df_all, aes(x = prob, fill = type)) +
   ) +
   theme_minimal(base_size = 14)
 
+ggsave("population_effect_travel.png", travel_all, width = 8, height = 6, dpi = 300)
+
 # --- Histogram for daily travellers only ---
 df_daily <- tibble(
   prob = c(obs_daily_draws, cf_daily_draws),
   type = rep(c("Observed", "Counterfactual"), each = length(obs_daily_draws))
 )
 
-ggplot(df_daily, aes(x = prob, fill = type)) +
+travel_subset <- ggplot(df_daily, aes(x = prob, fill = type)) +
   geom_histogram(position = "identity", alpha = 0.6, bins = 30, colour = "black") +
   scale_fill_manual(values = c("Observed" = "#3B4BA3", "Counterfactual" = "#F4A261")) +
   labs(
@@ -164,4 +166,4 @@ ggplot(df_daily, aes(x = prob, fill = type)) +
   ) +
   theme_minimal(base_size = 14)
 
-
+ggsave("subset_effect_travel.tiff", travel_subset, width = 8, height = 6, dpi = 300)
