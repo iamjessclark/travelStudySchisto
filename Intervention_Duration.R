@@ -16,9 +16,6 @@ priors <- get_custom_prior("bernoulli")
 data <-read.csv("Travel_prevEDIT.csv")
 nrow(data) #586
 
-# Ensure travel_frequency is numeric
-data$travel_frequency <- as.numeric(as.character(data$travel_frequency))
-
 
 
 # 1. Fit observed model (total effect with covariates)
@@ -132,7 +129,10 @@ p_all3 <-ggplot(df_all, aes(x = prob, fill = type)) +
     x = "Mean infection probability",
     y = "Number of posterior draws"
   ) +
-  theme_minimal(base_size = 14)
+  theme_minimal(base_size = 20)+ theme(
+    text = element_text(size = 20, face = "bold"),
+    plot.background = element_rect(fill = "white", colour = NA)
+  )
 
 # --- Histogram for subset with DurMin > 0 ---
 df_subset <- tibble(
@@ -148,7 +148,11 @@ p_subset <- ggplot(df_subset, aes(x = prob, fill = type)) +
     x = "Mean infection probability",
     y = "Number of posterior draws"
   ) +
-  theme_minimal(base_size = 14)
+  theme_minimal(base_size = 14) +
+  theme_minimal(base_size = 20)+ theme(
+    text = element_text(size = 20, face = "bold"),
+    plot.background = element_rect(fill = "white", colour = NA)
+  )
 
 # Print the plots
 p_all3

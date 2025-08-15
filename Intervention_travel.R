@@ -145,8 +145,11 @@ travel_all <- ggplot(df_all, aes(x = prob, fill = type)) +
     title = "Predicted Infection Probability (Whole Population)",
     x = "Mean infection probability",
     y = "Number of posterior draws"
-  ) +
-  theme_minimal(base_size = 14)
+  )  +
+  theme_minimal(base_size = 20)+ theme(
+    text = element_text(size = 20, face = "bold"),
+    plot.background = element_rect(fill = "white", colour = NA)
+  )
 
 ggsave("population_effect_travel.png", travel_all, width = 8, height = 6, dpi = 300)
 
@@ -163,7 +166,11 @@ travel_subset <- ggplot(df_daily, aes(x = prob, fill = type)) +
     title = "Predicted Infection Probability (Daily Travellers)",
     x = "Mean infection probability",
     y = "Number of posterior draws"
-  ) +
-  theme_minimal(base_size = 14)
+  )  +
+  theme_minimal(base_size = 20)+ theme(
+    text = element_text(size = 20, face = "bold"),
+    plot.background = element_rect(fill = "white", colour = NA)
+  )
 
-ggsave("subset_effect_travel.tiff", travel_subset, width = 8, height = 6, dpi = 300)
+ggsave("subset_effect_travel.png", travel_subset, width = 8, height = 6, dpi = 300)
+
