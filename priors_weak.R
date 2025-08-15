@@ -8,19 +8,20 @@ log_sd_epg   <- log(sd(filt$mean_sm[filt$mean_sm > 0], na.rm = TRUE))
 
 # Function to return priors based on model family
 get_custom_prior <- function(family) {
+
   switch(
     family,
     
     # Bernoulli model: Infection status
     "bernoulli" = c(
       prior(normal(0, 10), class = "b"),                   # Weakly informative, broad prior for effects
-      prior(normal(qlogis(0.18), 2.5), class = "Intercept") # Prior belief: baseline infection ~18%
+      prior(normal(-1.5, 2.5), class = "Intercept") # Prior belief: baseline infection ~18%
     ),
     
     # Bernoulli model with continuous duration predictor
     "bern_dur" = c(
       prior(normal(0, 10), class = "b"),                    # Broad prior for all effects
-      prior(normal(qlogis(0.18), 2.5), class = "Intercept")
+      prior(normal(-1.5, 2.5), class = "Intercept")
     ),
     
     # Gamma model: Egg burden
