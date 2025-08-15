@@ -100,7 +100,10 @@ p_all <- ggplot(df_all, aes(x = prob, fill = type)) +
     x = "Mean infection probability",
     y = "Number of posterior draws"
   ) +
-  theme_minimal(base_size = 14)
+  theme_minimal(base_size = 20)+ theme(
+    text = element_text(size = 20, face = "bold"),
+    plot.background = element_rect(fill = "white", colour = NA)
+  )
 
 # Occupation subgroup
 df_occ <- tibble(
@@ -116,7 +119,10 @@ p_occ <- ggplot(df_occ, aes(x = prob, fill = type)) +
     x = "Mean infection probability",
     y = "Number of posterior draws"
   ) +
-  theme_minimal(base_size = 14)
+  theme_minimal(base_size = 20)+ theme(
+    text = element_text(size = 20, face = "bold"),
+    plot.background = element_rect(fill = "white", colour = NA)
+  )
 
 # Draw plots
 p_all
@@ -228,8 +234,10 @@ p_all2 <- ggplot(df_all, aes(x = value, fill = type)) +
     x = "Mean EPG",
     y = "Number of posterior draws"
   ) +
-  theme_minimal(base_size = 14)+
-  xlim(0,100)+ylim(0,10000)
+  theme_minimal(base_size = 20)+ theme(
+    text = element_text(size = 20, face = "bold"),
+    plot.background = element_rect(fill = "white", colour = NA)
+  )
 
 # Domestic subgroup
 df_dom <- tibble(
@@ -245,8 +253,10 @@ p_dom <- ggplot(df_dom, aes(x = value, fill = type)) +
     x = "Mean EPG",
     y = "Number of posterior draws"
   ) +
-  theme_minimal(base_size = 14)+
-  xlim(0,100)+ylim(0,1000)
+  theme_minimal(base_size = 20)+ theme(
+    text = element_text(size = 20, face = "bold"),
+    plot.background = element_rect(fill = "white", colour = NA)
+  )
 
 p_all2
 p_dom
