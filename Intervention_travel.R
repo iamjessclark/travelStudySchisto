@@ -31,25 +31,24 @@ model_observed <- brm(
 # daily travellers have zero travel and the downstream effects of this are also noted
 # anyone who hase treavl = zero must also have duration = 0 and activity = none
 
-# Index daily travellers once from the factual data
-daily_index <- which(data$travel_frequency == "92")
+# Flag daily travellers in the factual data (before any CF edits)
+data <- data %>%
+  mutate(was_daily = travel_frequency == "92")
 
-# Build CF data by copying factual data
-cf_data_daily <- data
-
-# Set travel to "0" for original daily travellers, preserving factor levels
+# Save factor levels so we can reapply them after mutate
 tf_levels <- levels(data$travel_frequency)
-cf_data_daily$travel_frequency <- as.character(cf_data_daily$travel_frequency)
-cf_data_daily$travel_frequency[daily_index] <- "0"
-cf_data_daily$travel_frequency <- factor(cf_data_daily$travel_frequency, levels = tf_levels)
+act_levels <- if (is.factor(data$ActNEW)) levels(data$ActNEW) else NULL
 
-# Set mediators consistently for daily travellers only
-cf_data_daily$DurMin[daily_index] <- 0
-cf_data_daily$ActNEW[daily_index] <- "None"
-# Ensure ActNEW also keeps the original factor levels if it’s a factor
-if (is.factor(data$ActNEW)) {
-  cf_data_daily$ActNEW <- factor(cf_data_daily$ActNEW, levels = levels(data$ActNEW))
-}
+cf_data_daily <- data %>%
+  mutate(
+    travel_frequency = if_else(travel_frequency == "92", "0", as.character(travel_frequency)),
+    DurMin = if_else(travel_frequency == "0", 0, DurMin),
+    ActNEW = if_else(travel_frequency == "0", "None", as.character(ActNEW))
+  ) %>%
+  mutate(
+    travel_frequency = factor(travel_frequency, levels = tf_levels),
+    ActNEW = if (!is.null(act_levels)) factor(ActNEW, levels = act_levels) else ActNEW
+  )
 
 
 
@@ -63,12 +62,6 @@ cf_all_draws  <- (posterior_epred(model_observed,
                                          newdata = cf_data_daily, 
                                          re_formula = NA))
 
-# Quick NA diagnostics (should be FALSE/0)
-any(is.na(obs_all_draws)); any(is.na(cf_all_draws))
-
-#mean of each draw
-obs_mean_all <- rowMeans(obs_all_draws)
-cf_mean_all  <- rowMeans(cf_all_draws)
 
 
 
@@ -77,6 +70,15 @@ cf_mean_all  <- rowMeans(cf_all_draws)
 obs_mean_all <- rowMeans(obs_all_draws)
 cf_mean_all  <- rowMeans(cf_all_draws)
 
+# DAILY TRAVELLERS ONLY (use the flag to pick columns)
+was_daily <- data$was_daily
+stopifnot(any(was_daily))  # sanity check
+
+obs_daily_draws <- rowMeans(obs_all_draws[, was_daily, drop = FALSE], na.rm = TRUE)
+cf_daily_draws  <- rowMeans(cf_all_draws[,  was_daily, drop = FALSE], na.rm = TRUE)
+
+
+#a function to get the median and crIs
 summ <- function(x) {
   x <- as.numeric(x)
   x <- x[is.finite(x)]                 # drop NA / NaN / Inf
@@ -93,9 +95,6 @@ pop_cf_summary   <- 100 * summ(cf_mean_all)
 pop_diff_summary <- 100 * summ(cf_mean_all - obs_mean_all)
 
 
-#daily travellers only
-obs_daily_draws <- rowMeans(obs_all_draws[, daily_index, drop = FALSE])
-cf_daily_draws  <- rowMeans(cf_all_draws[,  daily_index, drop = FALSE])
 
 daily_obs_summary  <- 100 * summ(obs_daily_draws)
 daily_cf_summary   <- 100 * summ(cf_daily_draws)
@@ -151,8 +150,8 @@ ggplot(df_all, aes(x = prob, fill = type)) +
 
 # --- Histogram for daily travellers only ---
 df_daily <- tibble(
-  prob = c(obs_mean_daily, cf_mean_daily),
-  type = rep(c("Observed", "Counterfactual"), each = length(obs_mean_daily))
+  prob = c(obs_daily_draws, cf_daily_draws),
+  type = rep(c("Observed", "Counterfactual"), each = length(obs_daily_draws))
 )
 
 ggplot(df_daily, aes(x = prob, fill = type)) +
