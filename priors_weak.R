@@ -1,9 +1,6 @@
 #Function for weak priors
 
 
-log_mean_epg <- log(mean(filt$mean_sm[filt$mean_sm > 0], na.rm = TRUE))
-log_sd_epg   <- log(sd(filt$mean_sm[filt$mean_sm > 0], na.rm = TRUE))
-
 
 
 # Function to return priors based on model family
