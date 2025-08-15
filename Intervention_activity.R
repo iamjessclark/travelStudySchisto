@@ -1,18 +1,23 @@
-# Load required libraries
+rm(list = ls())
+
+# --- Libraries
 library(tidyverse)
 library(brms)
 
-#=================================================================
-#ACTIVITY INTERVENTION ########################
-#================================================================
-# Set priors
+# --- Data
+data <- read.csv("Travel_prevEDIT.csv")
+nrow(data)  # 586
+
+# Harmonise types used by the model
+data$travel_frequency <- as.factor(data$travel_frequency)
+if (!is.factor(data$ActNEW)) data$ActNEW <- factor(data$ActNEW)
+
+# --- Priors
 priors <- get_custom_prior("bernoulli")
 
-#
-
-# 1. Fit observed model (total effect with covariates)
+# --- Fit observed model (Activity as exposure)
 model_observed_act <- brm(
-  infected_bin ~ActNEW+age_class+Location+Sex_bin+travel_frequency,
+  infected_bin ~ ActNEW + age_class + Location + Sex_bin + travel_frequency,
   data = data,
   family = bernoulli(),
   prior = priors,
@@ -20,209 +25,225 @@ model_observed_act <- brm(
   control = list(max_treedepth = 15)
 )
 
-# 2. Fit counterfactual model (total effect, backdoor paths are now closed so no confounders)
-model_cf_act<- brm(
-  infected_bin ~ ActNEW,
-  data = data,
-  family = bernoulli(),
-  prior = priors,
-  iter = 10000, warmup = 3000, chains = 4, cores = 4,
-  control = list(max_treedepth = 15)
+# --- Flag the subgroup that had Occupation in the factual world
+data <- data %>% mutate(was_occ = ActNEW == "Occupation")
+
+# --- Build counterfactual dataset: Occupation -> None and DurMin -> 0 for those changed
+act_levels <- levels(data$ActNEW)
+cf_data_act <- data %>%
+  mutate(
+    ActNEW = if_else(was_occ, "None", as.character(ActNEW)),
+    DurMin = if_else(was_occ, 0, DurMin)  # downstream mediator set to 0 for those changed
+  ) %>%
+  mutate(
+    ActNEW = factor(ActNEW, levels = act_levels)  # preserve original factor levels
+  )
+
+# --- Posterior predictions (draws x individuals)
+obs_all_draws <- posterior_epred(model_observed_act, newdata = data,       re_formula = NA)
+cf_all_draws  <- posterior_epred(model_observed_act, newdata = cf_data_act, re_formula = NA)
+
+# --- Summaries
+summ <- function(x){
+  x <- as.numeric(x); x <- x[is.finite(x)]
+  c(median = stats::median(x),
+    l95    = stats::quantile(x, 0.025, names = FALSE),
+    u95    = stats::quantile(x, 0.975, names = FALSE))
+}
+
+# Whole population (g-computation: mean over individuals per draw)
+obs_mean_all <- rowMeans(obs_all_draws)
+cf_mean_all  <- rowMeans(cf_all_draws)
+
+pop_obs_summary  <- 100 * summ(obs_mean_all)
+pop_cf_summary   <- 100 * summ(cf_mean_all)
+pop_diff_summary <- 100 * summ(cf_mean_all - obs_mean_all)  # percentage points
+
+# Subgroup: those who were Occupation in the factual world
+was_occ <- data$was_occ
+stopifnot(any(was_occ))
+
+obs_occ_draws <- rowMeans(obs_all_draws[, was_occ, drop = FALSE], na.rm = TRUE)
+cf_occ_draws  <- rowMeans(cf_all_draws[,  was_occ, drop = FALSE], na.rm = TRUE)
+
+occ_obs_summary  <- 100 * summ(obs_occ_draws)
+occ_cf_summary   <- 100 * summ(cf_occ_draws)
+occ_diff_summary <- 100 * summ(cf_occ_draws - obs_occ_draws)
+
+# --- Table for manuscript text
+results_tbl <- tibble::tibble(
+  group      = rep(c("Whole population", "Occupation subgroup"), each = 3),
+  scenario   = rep(c("Observed", "Counterfactual", "Difference (CF−Obs)"), times = 2),
+  median_pct = c(pop_obs_summary["median"],  pop_cf_summary["median"],  pop_diff_summary["median"],
+                 occ_obs_summary["median"],  occ_cf_summary["median"],  occ_diff_summary["median"]),
+  l95_pct    = c(pop_obs_summary["l95"],     pop_cf_summary["l95"],     pop_diff_summary["l95"],
+                 occ_obs_summary["l95"],     occ_cf_summary["l95"],     occ_diff_summary["l95"]),
+  u95_pct    = c(pop_obs_summary["u95"],     pop_cf_summary["u95"],     pop_diff_summary["u95"],
+                 occ_obs_summary["u95"],     occ_cf_summary["u95"],     occ_diff_summary["u95"])
+)
+print(results_tbl)
+
+# --- Plots (same style as your travel intervention)
+library(ggplot2)
+
+# Whole population
+df_all <- tibble(
+  prob = c(obs_mean_all, cf_mean_all),
+  type = rep(c("Observed", "Counterfactual"), each = length(obs_mean_all))
 )
 
-
-# # 3. Predict infection under observed model (original frequency)
-# obs_pred_act <- rowMeans(posterior_epred(
-#   model_observed_act,
-#   newdata = data,
-#   re_formula = NA
-# ))
-
-#new step 3
-## Posterior predictions: full uncertainty (individual outcome variability)
-obs_ppred_act <- posterior_predict(
-  model_observed_act,
-  newdata = data,
-  re_formula = NA
-)
-
-# Average predicted infection *per individual* across posterior draws
-obs_ppred_act_mean <- rowMeans(obs_ppred_act)
-
-# 4. Create counterfactual: Everyone doing occupation is stopped
-data_cf_act_OCC <- data %>%
-  mutate(ActNEW = case_when(
-    ActNEW == "Occupation" ~ "None",
-    TRUE ~ ActNEW
-  ))
-
-# 
-# # 5. Predict infection under counterfactual model
-# cf_pred_act <- rowMeans(posterior_epred(
-#   model_cf_act,
-#   newdata = data_cf_act_OCC,
-#   re_formula = NA
-# ))
-
-#new step 5
-cf_ppred_act <- posterior_predict(
-  model_cf_act,
-  newdata = data_cf_act_OCC,
-  re_formula = NA
-)
-
-cf_ppred_act_mean <- rowMeans(cf_ppred_act)
-
-
-# # 6. Summarise change in prevalence 
-# diff_act<- cf_pred_act - obs_pred_act
-# quantile(diff_dur, probs = c(0.025, 0.5, 0.975))
-
-
-#new step 6
-diff_ppred_act <- cf_ppred_act_mean - obs_ppred_act_mean
-quantile(diff_ppred_act, probs = c(0.025, 0.5, 0.975))
-
-
-########################### activty ==none
-
-
-# 4. Create counterfactual: no duration in the lake for everyone
-data_cf_act_OC2C <- data %>%
-  mutate(ActNEW = case_when(
-    ActNEW !="None" ~ "None",
-    TRUE ~ ActNEW
-  ))
-
-# 5. Predict infection under counterfactual model
-cf_pred_act2 <- rowMeans(posterior_epred(
-  model_cf_act,
-  newdata = data_cf_act_OC2C,
-  re_formula = NA
-))
-
-# 6. Summarise change in prevalence 
-diff_act2<- cf_pred_act2 - obs_pred_act
-quantile(diff_act2, probs = c(0.025, 0.5, 0.975))
-
-#check by just comparing coefficents for each activity category
-
-posterior <- as_draws_df(model_cf_act)
-
-occupation_effect <- posterior$b_ActNEWOccupation
-
-occupation_prob_diff <- plogis(posterior$b_Intercept + occupation_effect) - 
-  plogis(posterior$b_Intercept)
-
-quantile(occupation_prob_diff, c(0.025, 0.5, 0.975))
-
-#====================================================================================
-# Graphs     #######
-# ===================================================================================
-#
-library(tidyverse)
-
-####
-#Occupation to none
-
-# Prepare data
-df_act_Occ <- tibble(
-  prob = c(obs_pred_act, cf_pred_act),
-  type = rep(c("Observed", "Counterfactual"), each = length(obs_pred_act))
-)
-
-# Plot
-ggplot(df_act_Occ, aes(x = prob, fill = type)) +
+p_all <- ggplot(df_all, aes(x = prob, fill = type)) +
   geom_histogram(position = "identity", alpha = 0.6, bins = 30, colour = "black") +
   scale_fill_manual(values = c("Observed" = "#3B4BA3", "Counterfactual" = "#F4A261")) +
   labs(
-    title = "Predicted Infection Probability (Occupation changed to none)",
-    x = "Infection probability",
-    y = "Number of posterior predictions"
+    title = "Predicted Infection Probability (Whole Population)\nIntervention: Occupation → None",
+    x = "Mean infection probability",
+    y = "Number of posterior draws"
   ) +
-  theme_minimal()+
-  theme(text=element_text(size=18),
-        axis.title=element_text(face="bold"))
+  theme_minimal(base_size = 14)
 
-#Histogram for everyone reporting no activity
-
-# Prepare data
-df_act <- tibble(
-  prob = c(obs_pred_act, cf_pred_act2),
-  type = rep(c("Observed", "Counterfactual"), each = length(obs_pred_act))
+# Occupation subgroup
+df_occ <- tibble(
+  prob = c(obs_occ_draws, cf_occ_draws),
+  type = rep(c("Observed", "Counterfactual"), each = length(obs_occ_draws))
 )
 
-# Plot
-ggplot(df_act, aes(x = prob, fill = type)) +
+p_occ <- ggplot(df_occ, aes(x = prob, fill = type)) +
   geom_histogram(position = "identity", alpha = 0.6, bins = 30, colour = "black") +
   scale_fill_manual(values = c("Observed" = "#3B4BA3", "Counterfactual" = "#F4A261")) +
   labs(
-    title = "Predicted Infection Probability (No activity)",
-    x = "Infection probability",
-    y = "Number of posterior predictions"
+    title = "Predicted Infection Probability (Occupation Subgroup)\nIntervention: Occupation → None",
+    x = "Mean infection probability",
+    y = "Number of posterior draws"
   ) +
-  theme_minimal()+
-  theme(text=element_text(size=18),
-        axis.title=element_text(face="bold"))
+  theme_minimal(base_size = 14)
 
-#side by side graphs
-#
-#
-#library(tidyverse)
-library(patchwork)  # for side-by-side plots
+# Draw plots
+p_all
+p_occ
 
-# Simulated draws (from your posterior_epred output)
-# Make sure you have these ready:
-# - obs_pred_all, cf_pred_all: full population (n_draws × n_individuals)
-# - obs_pred_daily, cf_pred_daily: daily travellers (n_draws × n_individuals)
-# 
-# 
-# 
 
-# Convert to long format
-make_long_df_act <- function(pred_matrix, label) {
-  as.data.frame(pred_matrix) %>%
-    pivot_longer(everything(), names_to = "Individual", values_to = "Infection_Prob") %>%
-    mutate(Type = label)
+###worm buden and domestic
+###
+filt <- data%>%
+  filter(mean_sm >0)
+
+Act_mean_sm <- brm(mean_sm ~ ActNEW+ age_class+Location+Sex_bin+travel_frequency,
+                   data=filt,
+                   family="gamma",
+                   prior=  c(
+                     prior(normal(2.5, 1), class = "Intercept"),
+                     prior(normal(0, 10), class = "b"),
+                     prior(exponential(1), class = "shape")),
+                   iter = 10000, warmup = 3000, chains = 4, cores = 8,
+                   control = list(max_treedepth = 15))
+
+
+# --- Flag Domestic cases in the factual data
+filt <- filt %>%
+  mutate(was_domestic = ActNEW == "Domestic")
+
+# Store factor levels
+act_levels <- levels(filt$ActNEW)
+
+# --- Build counterfactual data (Domestic → None)
+cf_data_dom <- filt %>%
+  mutate(
+    ActNEW = if_else(was_domestic, "None", as.character(ActNEW)),
+    DurMin = if_else(was_domestic, 0, DurMin)  # downstream duration set to 0
+  ) %>%
+  mutate(
+    ActNEW = factor(ActNEW, levels = act_levels)
+  )
+
+# --- Posterior predictions (draws x individuals)
+obs_all_draws <- posterior_epred(Act_mean_sm, newdata = filt,       re_formula = NA)
+cf_all_draws  <- posterior_epred(Act_mean_sm, newdata = cf_data_dom, re_formula = NA)
+
+
+# 2. Mask extreme values (>150 EPG) with NA
+obs_all_draws[obs_all_draws > 150] <- NA
+cf_all_draws[cf_all_draws > 150]   <- NA
+
+
+# --- Summaries
+summ <- function(x){
+  x <- as.numeric(x)
+  x <- x[is.finite(x)]                # drop NA/NaN/Inf
+  stopifnot(length(x) > 0)            # fail fast if empty
+  c(
+    median = stats::median(x),
+    l95    = stats::quantile(x, 0.025, names = FALSE),
+    u95    = stats::quantile(x, 0.975, names = FALSE)
+  )
 }
 
-df_all_obs_act <- make_long_df(obs_pred_act, "Observed")
-df_all_cf_act  <- make_long_df(cf_pred_act,  "Counterfactual")
+# Whole population
+obs_mean_all <- rowMeans(obs_all_draws)
+cf_mean_all  <- rowMeans(cf_all_draws)
 
-df_act2_cf  <- make_long_df(cf_pred_act2,  "Counterfactual")
+pop_obs_summary  <- summ(obs_mean_all)
+pop_cf_summary   <- summ(cf_mean_all)
+pop_diff_summary <- summ(cf_mean_all - obs_mean_all)  # absolute difference in mean EPG
 
-# Combine
-df_all_combined_actOcc  <- bind_rows(df_all_obs_act, df_all_cf_act)
-df_act2_combinedALL <- bind_rows(df_all_obs_act, df_act2_cf)
+# Domestic subgroup
+was_domestic <- filt$was_domestic
+obs_dom_draws <- rowMeans(obs_all_draws[, was_domestic, drop = FALSE], na.rm = TRUE)
+cf_dom_draws  <- rowMeans(cf_all_draws[,  was_domestic, drop = FALSE], na.rm = TRUE)
 
-# Plot settings
-plot_hist2 <- function(df, title) {
-  ggplot(df, aes(x = Infection_Prob, fill = Type)) +
-    geom_histogram(position = "identity", alpha = 0.6, bins = 30, colour = "black") +
-    scale_fill_manual(name = NULL,
-                      values = c("Observed" = "#4477AA", "Counterfactual" = "#EE7733")) +
-    labs(
-      x = "",
-      y = "",
-      title = title,
-      
-    ) +
-    theme_minimal(base_size = 13)+
-    theme(text=element_text(size=28, face="bold"), 
-          axis.title = element_text(face="bold"))
-}
+dom_obs_summary  <- summ(obs_dom_draws)
+dom_cf_summary   <- summ(cf_dom_draws)
+dom_diff_summary <- summ(cf_dom_draws - obs_dom_draws)
 
-p2 <- plot_hist2(df_all_combined_actOcc ,   "Occupation only")
-p1 <- plot_hist2(df_act2_combinedALL, "All activities")
+# --- Results table
+results_tbl <- tibble::tibble(
+  group      = rep(c("Whole population", "Domestic subgroup"), each = 3),
+  scenario   = rep(c("Observed", "Counterfactual", "Difference (CF−Obs)"), times = 2),
+  median     = c(pop_obs_summary["median"],  pop_cf_summary["median"],  pop_diff_summary["median"],
+                 dom_obs_summary["median"],  dom_cf_summary["median"],  dom_diff_summary["median"]),
+  l95        = c(pop_obs_summary["l95"],     pop_cf_summary["l95"],     pop_diff_summary["l95"],
+                 dom_obs_summary["l95"],     dom_cf_summary["l95"],     dom_diff_summary["l95"]),
+  u95        = c(pop_obs_summary["u95"],     pop_cf_summary["u95"],     pop_diff_summary["u95"],
+                 dom_obs_summary["u95"],     dom_cf_summary["u95"],     dom_diff_summary["u95"])
+)
+print(results_tbl)
 
-# Side-by-side layout
-side_act <-p1 + p2 + plot_layout(guides = "collect") & theme(legend.position = "bottom")
+# --- Plots
+library(ggplot2)
 
-side_act
+# Whole population
+df_all <- tibble(
+  value = c(obs_mean_all, cf_mean_all),
+  type  = rep(c("Observed", "Counterfactual"), each = length(obs_mean_all))
+)
 
-ggsave("Figures/Activity_intervention.png", side_act, width = 12, height = 10, dpi = 300)
+p_all <- ggplot(df_all, aes(x = value, fill = type)) +
+  geom_histogram(position = "identity", alpha = 0.6, bins = 30, colour = "black") +
+  scale_fill_manual(values = c("Observed" = "#3B4BA3", "Counterfactual" = "#F4A261")) +
+  labs(
+    title = "Predicted Mean EPG (Whole Population)\nIntervention: Domestic → None",
+    x = "Mean EPG",
+    y = "Number of posterior draws"
+  ) +
+  theme_minimal(base_size = 14)+
+  xlim(0,100)+ylim(0,10000)
 
-#################
-################## 
-#What about on worm burden
+# Domestic subgroup
+df_dom <- tibble(
+  value = c(obs_dom_draws, cf_dom_draws),
+  type  = rep(c("Observed", "Counterfactual"), each = length(obs_dom_draws))
+)
 
+p_dom <- ggplot(df_dom, aes(x = value, fill = type)) +
+  geom_histogram(position = "identity", alpha = 0.6, bins = 30, colour = "black") +
+  scale_fill_manual(values = c("Observed" = "#3B4BA3", "Counterfactual" = "#F4A261")) +
+  labs(
+    title = "Predicted Mean EPG (Domestic Subgroup)\nIntervention: Domestic → None",
+    x = "Mean EPG",
+    y = "Number of posterior draws"
+  ) +
+  theme_minimal(base_size = 14)+
+  xlim(0,100)+ylim(0,1000)
+
+p_all
+p_dom
