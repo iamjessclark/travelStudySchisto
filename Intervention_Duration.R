@@ -50,6 +50,54 @@ cf_pred_dur <- posterior_epred(
   re_formula = NA
 )
 
+############
+############
+# --- after you have obs_pred_dur and cf_pred_dur ---
+
+data$travel_frequency <- as.factor(data$travel_frequency)
+# helper to summarise a vector of draws
+summ <- function(x) c(median = median(x),
+                      l95 = quantile(x, 0.025),
+                      u95 = quantile(x, 0.975))
+
+# function: per-draw group means (pred_matrix: draws x individuals)
+# robust: always returns a numeric matrix (draws x levels)
+group_means <- function(pred_matrix, groups_factor) {
+  levs <- levels(groups_factor)
+  n_draws <- nrow(pred_matrix)
+  
+  out <- vapply(
+    levs,
+    function(lv) {
+      idx <- which(groups_factor == lv)
+      if (length(idx) == 0) rep(NA_real_, n_draws)
+      else rowMeans(pred_matrix[, idx, drop = FALSE])
+    },
+    numeric(n_draws)  # enforce numeric
+  )
+  colnames(out) <- levs
+  out
+}
+
+obs_pred_dur <- as.matrix(obs_pred_dur)
+storage.mode(obs_pred_dur) <- "double"
+
+cf_pred_dur  <- as.matrix(cf_pred_dur)
+storage.mode(cf_pred_dur)  <- "double"
+
+# per-draw mean risk within each travel_frequency level
+obs_by_freq <- group_means(obs_pred_dur, data$travel_frequency)
+cf_by_freq  <- group_means(cf_pred_dur,  data$travel_frequency)
+
+# per-draw contrasts (CF − OBS) within each level = CATEs
+diff_by_freq <- cf_by_freq - obs_by_freq
+
+# summarise for each level (risk difference on probability scale)
+cate_table <- t(apply(diff_by_freq, 2, function(col) summ(col)))
+cate_table
+
+############ mechaistic counterfactual
+
 #populstion wide mean per draw and CrIs
 #
 obs_mean_all <- rowMeans(obs_pred_dur)
@@ -96,6 +144,13 @@ cf_pred_dur2 <- posterior_epred(
   newdata = cf_data2,
   re_formula = NA
 )
+
+
+obs_by_freq2 <- group_means(obs_pred_dur2, data2$travel_frequency)
+cf_by_freq2  <- group_means(cf_pred_dur2,  data2$travel_frequency)
+diff_by_freq2 <- cf_by_freq2 - obs_by_freq2
+cate_table_contact_only <- t(apply(diff_by_freq2, 2, function(col) summ(col)))
+cate_table_contact_only
 
 # Mean per draw for this subset
 obs_mean_all2 <- rowMeans(obs_pred_dur2)
