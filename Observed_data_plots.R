@@ -10,6 +10,8 @@ library(patchwork)  # to combine plots (optional but handy)
 library(purrr)
 library(viridis)
 
+#code generated using real data and AI to write code. All checked against real data for mistakes.
+
 #-------------------------
 # 0) Helper functions
 #-------------------------
