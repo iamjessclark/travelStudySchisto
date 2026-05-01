@@ -1,26 +1,41 @@
 # Sensitivity_analyses.R
 # Robustness analyses addressing four peer reviewer comments
 #
-# Comment 1: Cross-sectional design -- no temporal ordering, unmeasured confounders
-#            -> E-value analysis (unmeasured confounding threshold)
+# DAG structure: Travel -> {Activity, MDA, Duration} -> Infection
+# All three (Activity, MDA, Duration) are MEDIATORS on the Travel->Infection pathway.
+# The correct total effect model does NOT condition on any of them.
 #
-# Comment 2: Self-reported exposures prone to social-desirability bias; MDA
-#            participation may introduce residual confounding
-#            -> Measurement error bounding for DurMin (classical attenuation formula)
-#            -> E-value treating MDA participation as potential confounder
-#            -> Travel effect with vs without MDA in adjustment set
+# Comment 1: Cross-sectional design -- no temporal ordering, unmeasured confounders
+#            -> Sensitivity 1: E-value analysis across all key associations
+#               (travel, activity, MDA vs infection and burden)
+#
+# Comment 2: Self-reported exposures prone to social-desirability bias
+#            -> Sensitivity 2a: Measurement error bounding for DurMin
+#               (classical attenuation: true beta = observed beta / lambda)
+#               Note: primary categorical exposures (travel frequency, activity type)
+#               are less susceptible to continuous measurement error bias
 #
 # Comment 3: Counterfactual simulations assume independent manipulation; no
 #            spillover or behavioural adaptation
-#            -> Spillover bounding (range of assumed spillover fractions)
-#            -> Behavioural substitution bounding
+#            -> Sensitivity 3: Spillover bounding (0-30% spillover to non-travellers)
+#            -> Behavioural substitution bounding (0-50% substitution)
+#            Note: spillover results are presented in the main text (Counterfactuals
+#            section); substitution results are in supplementary material
 #
-# Comment 4: Activity may not be a true mediator; conditioning on it could remove
-#            real travel effects; DAG not empirically verifiable
-#            -> Compare travel effect under two DAG structures:
-#               Model A = Act is mediator (total effect, do NOT adjust for Act)
-#               Model B = Act is confounder/common cause (adjust for Act)
-#            -> Present unadjusted travel association alongside both
+# Comment 4: Mediators (Activity, MDA, Duration) may act as confounders rather
+#            than mediators; DAG structure not empirically verifiable
+#            -> Sensitivity 4: All 8 combinations (2^3) of treating each mediator
+#               as a potential confounder tested simultaneously:
+#               Model A = none conditioned on (total effect, correct DAG)
+#               Model B = + MDA only
+#               Model C = + Activity only
+#               Model D = + Duration only
+#               Model E = + Activity + MDA
+#               Model F = + MDA + Duration
+#               Model G = + Activity + Duration
+#               Model H = + Activity + MDA + Duration (most conservative)
+#            Note: this replaces the earlier separate Sensitivity 2b (MDA only)
+#            which has been merged here as it tests the same structural question
 
 rm(list = ls())
 set.seed(2024)
