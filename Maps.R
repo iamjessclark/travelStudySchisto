@@ -30,12 +30,20 @@ center_lat <- mean(locations$lattitude)
 center_lon <- mean(locations$longitude)
 
 # Register Google API key
-ggmap::register_google(key="AIzaSyDIQNJb--qC9r850FHGP7BsAG4XCTw6-3A")
+ggmap::register_google(key="")
 
-# Adjust the center of the map based on mean latitude and longitude
-uganda_map <- get_map(location = c(lon = center_lon, lat = center_lat), zoom = 11, maptype = "terrain")
+# Define west-extended bounding box
+bbox <- c(
+  left   = min(locations$longitude) - 0.05,  # shift west more
+  bottom = min(locations$lattitude)  - 0.02, # keep south margin
+  right  = max(locations$longitude)  + 0.02, # small east margin
+  top    = max(locations$lattitude)  + 0.02  # keep north margin
+)
 
-# Plot the map with flagged locations and custom colors for each place
+# Get map with custom bounding box
+uganda_map <- get_map(location = bbox, maptype = "terrain")
+
+# Plot
 ggmap(uganda_map) +
   geom_point(data = locations, aes(x = longitude, y = lattitude, color = Villages), size = 5) +
   scale_color_manual(values = c(
@@ -49,7 +57,8 @@ ggmap(uganda_map) +
   labs(
     x = "Longitude",
     y = "Latitude",
-    title = "Village Locations")+
+    title = "Village Locations"
+  ) +
   theme(
     axis.text.x = element_text(hjust = 1, size = 14),
     axis.text.y = element_text(size = 14),

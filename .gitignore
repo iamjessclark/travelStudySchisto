@@ -1,0 +1,25 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+
+# macOS
+.DS_Store
+
+# R project file
+*.Rproj
+
+# Session notes (internal working documents)
+Sensitivity_analyses_session_notes.md
+
+# Generated figures (PNG, PDF, PPTX, TIFF)
+*.png
+*.pdf
+*.pptx
+*.tiff
+
+# Cached brms model objects (large binary files)
+models/
+
+# Loose output files at root level
+prevalence.csv

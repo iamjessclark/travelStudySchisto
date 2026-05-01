@@ -10,7 +10,7 @@ library(patchwork)  # to combine plots (optional but handy)
 library(purrr)
 library(viridis)
 
-
+#code generated using real data and AI to write code. All checked against real data for mistakes.
 
 #-------------------------
 # 0) Helper functions
@@ -347,7 +347,7 @@ fig_epg_cont
 #-------------------------
 # 7) Save (optional)
 #-------------------------
-ggsave("fig_infection_vs_categorical.png", fig_inf_cats, width = 12, height = 4, dpi = 300)
-ggsave("fig_infection_vs_duration.png",   fig_inf_cont, width = 6, height = 4, dpi = 300)
-ggsave("fig_intensity_vs_categorical.png", fig_epg_cats, width = 12, height = 4, dpi = 300)
-ggsave("fig_intensity_vs_duration.png",    fig_epg_cont, width = 6, height = 4, dpi = 300)
+ggsave("Figures/fig_infection_vs_categorical.png", fig_inf_cats, width = 12, height = 4, dpi = 300)
+ggsave("Figures/fig_infection_vs_duration.png",   fig_inf_cont, width = 6, height = 4, dpi = 300)
+ggsave("Figures/fig_intensity_vs_categorical.png", fig_epg_cats, width = 12, height = 4, dpi = 300)
+ggsave("Figures/fig_intensity_vs_duration.png",    fig_epg_cont, width = 6, height = 4, dpi = 300)

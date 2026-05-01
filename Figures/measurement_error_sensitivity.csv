@@ -1,0 +1,7 @@
+"reliability_ratio","pct_measurement_error","log_or_corrected_med","log_or_corrected_lo","log_or_corrected_hi","or_per_min_corrected","direction"
+0.5,"50%",0.009787482380353,NA,NA,1.00983553643414,"Attenuation: true effect at least as large as corrected value"
+0.6,"40%",0.00815623531696083,NA,NA,1.00818958802007,"Attenuation: true effect at least as large as corrected value"
+0.7,"30%",0.00699105884310928,NA,NA,1.00701555334254,"Attenuation: true effect at least as large as corrected value"
+0.8,"20%",0.00611717648772062,NA,NA,1.00613592462086,"Attenuation: true effect at least as large as corrected value"
+0.9,"10%",0.00543749021130722,NA,NA,1.00545230019208,"Attenuation: true effect at least as large as corrected value"
+1,"0%",0.0048937411901765,NA,NA,1.00490573509864,"Attenuation: true effect at least as large as corrected value"

@@ -2,7 +2,7 @@
 #
 
 rm(list = ls())
-setwd("~/Library/Mobile Documents/com~apple~CloudDocs/HPGH/_PhD/Jess_data/data_manipulation")
+
 
 library(dagitty)
 library(ggdag)
@@ -12,7 +12,7 @@ library(ggplot2)
 
 #install data
 #
-data <-read.csv("spreadsheets/Travel_prevEDIT.csv")
+data <-read.csv("Travel_prevEDIT.csv")
 nrow(data) #586
 
 
