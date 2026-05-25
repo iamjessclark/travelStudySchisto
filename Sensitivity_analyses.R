@@ -14,6 +14,7 @@
 #               (classical attenuation: true beta = observed beta / lambda)
 #               Note: primary categorical exposures (travel frequency, activity type)
 #               are less susceptible to continuous measurement error bias
+#               assuming linear relationship
 #
 # Comment 3: Counterfactual simulations assume independent manipulation; no
 #            spillover or behavioural adaptation
@@ -34,8 +35,7 @@
 #               Model F = + MDA + Duration
 #               Model G = + Activity + Duration
 #               Model H = + Activity + MDA + Duration (most conservative)
-#            Note: this replaces the earlier separate Sensitivity 2b (MDA only)
-#            which has been merged here as it tests the same structural question
+
 
 rm(list = ls())
 set.seed(2024)
@@ -48,19 +48,12 @@ library(tibble)
 library(tidyr)
 library(posterior)
 library(scales)
+library(EValue)
 
-# Install EValue if needed: install.packages("EValue")
-if (!requireNamespace("EValue", quietly = TRUE)) {
-  message("Install EValue package: install.packages('EValue')")
-  HAS_EVALUE <- FALSE
-} else {
-  library(EValue)
-  HAS_EVALUE <- TRUE
-}
 
 # ---- Data preparation -------------------------------------------------------
 data <- read.csv("Travel_prevEDIT.csv")
-nrow(data)  # 586 (one duplicate)
+
 
 data$travel_frequency <- as.factor(data$travel_frequency)
 data$ActNEW           <- as.factor(data$ActNEW)
@@ -259,15 +252,15 @@ compute_evalue_row <- function(exposure, outcome_label, model, coef_name,
   }
 
   tibble(
-    exposure          = exposure,
-    outcome           = outcome_label,
-    effect_type       = eff_label,
-    effect_est        = round(eff_med, 2),
-    cri_lo            = round(eff_lo,  2),
-    cri_hi            = round(eff_hi,  2),
-    rr_or_mr_approx   = round(rr_med,  2),
-    evalue_estimate   = round(ev_fn(rr_med), 2),
-    evalue_inner_cri  = round(if (cri_clears_null) ev_fn(inner_rr) else 1, 2)
+    Exposure          = exposure,
+    Outcome           = outcome_label,
+    Effect_type       = eff_label,
+    Effect_est        = round(eff_med, 2),
+    Cri_lo            = round(eff_lo,  2),
+    Cri_hi            = round(eff_hi,  2),
+    RR_or_MR_approx   = round(rr_med,  2),
+    Evalue_estimate   = round(ev_fn(rr_med), 2),
+    Evalue_inner_cri  = round(if (cri_clears_null) ev_fn(inner_rr) else 1, 2)
   )
 }
 
@@ -289,7 +282,7 @@ evalue_supp <- bind_rows(
 
   # ---- INFECTION (prevalence, binary) ----------------------------------------
   compute_evalue_row(
-    "Daily travel (92×/3mo) vs. never", "Infection (prevalence)",
+    "Daily travel vs. never", "Infection (prevalence)",
     model_travel_inf, daily_coef, "binary", p0_never),
 
   extract_evalue_rows(
@@ -302,7 +295,7 @@ evalue_supp <- bind_rows(
 
   # ---- BURDEN (mean EPG, Gamma, infected only) --------------------------------
   compute_evalue_row(
-    "Daily travel (92×/3mo) vs. never", "Burden (EPG, infected only)",
+    "Daily travel vs. never", "Burden (EPG, infected only)",
     model_travel_burd, daily_coef, "gamma"),
 
   extract_evalue_rows(
@@ -314,14 +307,11 @@ evalue_supp <- bind_rows(
     model_mda_burd, "gamma", NULL, "Burden (EPG, infected only)")
 )
 
-cat("=== Supplementary E-value table ===\n")
-cat("effect_type: OR = odds ratio (binary models); MR = mean ratio (Gamma models)\n")
-cat("evalue_inner_cri: E-value for CI bound closest to null\n",
-    "  (lower CI for harmful effects, upper CI for protective effects)\n\n")
+
 print(evalue_supp, n = Inf)
 
 write.csv(evalue_supp, "Figures/evalue_supplementary_table.csv", row.names = FALSE)
-cat("Supplementary table saved: Figures/evalue_supplementary_table.csv\n\n")
+
 
 # EValue package cross-check on the travel result if available
 if (HAS_EVALUE) {
@@ -337,13 +327,20 @@ if (HAS_EVALUE) {
 
 
 # =============================================================================
-# SENSITIVITY 2a: MEASUREMENT ERROR IN SELF-REPORTED WATER CONTACT DURATION
-# Classical measurement error in a continuous predictor attenuates the
-# coefficient toward zero. True effect = observed / reliability_ratio.
+# SENSITIVITY 2a: SELF-REPORTED WATER CONTACT DURATION — UNDERREPORTING BOUNDING
+# Social desirability bias likely causes proportional underreporting of DurMin:
+#   DurMin_observed = lambda * DurMin_true  =>  beta_true = beta_observed / lambda
+# where lambda is the reporting fraction (e.g. 0.7 = participants report 70% of
+# true duration). Bias is toward null, assuming underreporting is non-differential
+# with respect to infection status (plausible: infection status unknown at interview).
+# NOTE: Duration is a mediator (Travel->Activity->Duration->Infection). Measurement
+# error in Duration does NOT affect the total effect of travel on infection because
+# Duration is not conditioned on in the total effect model.
+# Cumulative ORs reported at 30, 60, and 120 min (90th pct of DurMin = 60 min).
 # =============================================================================
-message("\n=== SENSITIVITY 2a: MEASUREMENT ERROR IN DurMin ===\n")
+message("\n=== SENSITIVITY 2a: UNDERREPORTING BOUNDING FOR DurMin ===\n")
 
-# Adjustment set for Dur -> Inf (total & direct same): Act, Age, Sex, Location
+# Adjustment set for Dur -> Inf: Act, Age, Sex, Location
 model_dur_tot <- load_or_fit(
   "model_dur_total.rds",
   formula  = infected_bin ~ DurMin + ActNEW + age_class + Sex_bin + Location,
@@ -355,31 +352,27 @@ model_dur_tot <- load_or_fit(
 summary(model_dur_tot)
 
 draws_dur <- as_draws_df(model_dur_tot)$b_DurMin
-beta_dur  <- c(med = median(draws_dur), lo = quantile(draws_dur, 0.025),
-               hi  = quantile(draws_dur, 0.975))
+beta_dur  <- c(med = median(draws_dur),
+               lo  = as.numeric(quantile(draws_dur, 0.025)),
+               hi  = as.numeric(quantile(draws_dur, 0.975)))
 cat("Observed DurMin log-OR per minute: median =", round(beta_dur["med"], 4),
     " 95% CrI:", round(beta_dur["lo"], 4), "to", round(beta_dur["hi"], 4), "\n\n")
 
-# Classical measurement error: observed beta = lambda * true beta
-# lambda = reliability ratio = Var_true / (Var_true + Var_error)
-# If self-reports are unreliable, lambda < 1 and true effect is LARGER.
-# This bias is toward the null -> our conclusions are conservative.
-
+# Proportional underreporting correction: beta_true = beta_observed / lambda
+# Cumulative ORs at clinically meaningful durations capture the true scale of effect
 lambda_vals <- c(0.5, 0.6, 0.7, 0.8, 0.9, 1.0)
 
 me_sensitivity <- tibble(
-  reliability_ratio     = lambda_vals,
-  pct_measurement_error = paste0(round((1 - lambda_vals) * 100), "%"),
-  log_or_corrected_med  = beta_dur["med"] / lambda_vals,
-  log_or_corrected_lo   = beta_dur["lo"]  / lambda_vals,
-  log_or_corrected_hi   = beta_dur["hi"]  / lambda_vals,
-  or_per_min_corrected  = exp(beta_dur["med"] / lambda_vals),
-  direction             = "Attenuation: true effect at least as large as corrected value"
+  reporting_fraction = lambda_vals,
+  pct_underreporting = paste0(round((1 - lambda_vals) * 100), "%"),
+  or_at_30min        = round(exp(30  * beta_dur["med"] / lambda_vals), 2),
+  or_at_60min        = round(exp(60  * beta_dur["med"] / lambda_vals), 2),
+  or_at_120min       = round(exp(120 * beta_dur["med"] / lambda_vals), 2)
 )
 
-cat("=== Measurement error sensitivity for DurMin ===\n")
-cat("(lambda = reliability ratio; 1.0 = perfect measurement)\n\n")
-print(me_sensitivity %>% select(-direction), n = Inf)
+cat("=== Underreporting bounding for DurMin (cumulative ORs at key durations) ===\n")
+cat("(lambda = reporting fraction; 1.0 = perfect reporting; 0.5 = 50% underreporting)\n\n")
+print(me_sensitivity, n = Inf)
 write.csv(me_sensitivity, "Figures/measurement_error_sensitivity.csv", row.names = FALSE)
 
 
@@ -453,7 +446,7 @@ spillover_results <- bind_rows(lapply(spillover_fracs, function(sf) {
   adj_diff <- rowMeans(adj_cf) - obs_pop
   s <- summ_fn(adj_diff)
   tibble(spillover_frac = sf,
-         scenario       = paste0(sf * 100, "% spillover benefit to non-daily-travellers"),
+         scenario       = paste0(sf * 100, "% shared-water benefit transfer to non-travellers"),
          diff_med_pct   = s["med"],
          diff_lo_pct    = s["lo"],
          diff_hi_pct    = s["hi"])
@@ -487,7 +480,7 @@ print(substitution_results, n = Inf)
 
 # Combine and plot
 spillover_combined <- bind_rows(
-  mutate(spillover_results, type = "Spillover to non-travellers"),
+  mutate(spillover_results, type = "Shared-water benefit transfer"),
   mutate(substitution_results, type = "Behavioural substitution",
          spillover_frac = sub_frac) %>% select(-sub_frac)
 )
@@ -501,10 +494,10 @@ p_spill <- ggplot(spillover_combined,
   geom_point(size = 2) +
   geom_hline(yintercept = 0, linetype = "dashed", colour = "grey50") +
   scale_x_continuous(labels = function(x) paste0(x * 100, "%")) +
-  labs(x = "Assumed fraction (spillover or substitution)",
+  labs(x = "Illustrative assumed fraction",
        y = "Population prevalence difference, %\n(counterfactual − observed)",
        colour = NULL, fill = NULL,
-       title = "Sensitivity 3: spillover and substitution bounding") +
+       title = "Sensitivity 3: shared-water bounding and behavioural substitution") +
   theme_minimal(base_size = 13) +
   theme(plot.background  = element_rect(fill = "white", colour = NA),
         legend.position  = "bottom")
@@ -669,8 +662,8 @@ print(evalue_supp %>%
 cat("\n--- SENSITIVITY 2a: Measurement error (DurMin) ---\n")
 cat("Direction of bias: TOWARD NULL (observed effect is conservative)\n")
 print(me_sensitivity %>%
-        select(reliability_ratio, pct_measurement_error, or_per_min_corrected,
-               log_or_corrected_lo, log_or_corrected_hi), n = Inf)
+        select(reporting_fraction, pct_underreporting,
+               or_at_30min, or_at_60min, or_at_120min), n = Inf)
 
 cat("\n--- SENSITIVITY 3: Spillover / substitution bounding ---\n")
 print(spillover_combined %>%

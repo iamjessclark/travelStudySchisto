@@ -1,38 +1,66 @@
-# Descriptive analysis: infected PSAC by activity type
+# Descriptive analysis: activity type by age class and infection status
 # Generated in response to reviewer comment asking for data on
-# number of young children infected and their activity type.
-# This is a descriptive summary only — cell sizes are too small
-# for formal modelling of activity effects within PSAC.
+# number of children and adults infected and their activity type.
+# This is a descriptive summary only — cell sizes may be too small
+# for formal modelling of activity effects within age classes.
 
 library(dplyr)
 
 data <- read.csv("Travel_prevEDIT.csv")
 
-# --- PSAC: n total, n infected, % infected by activity type ---
-psac_by_activity <- data %>%
-  filter(age_class == "PSAC") %>%
-  group_by(ActNEW) %>%
+# --- Combined table: all age classes, activity type, infection ---
+# pct_of_infected is the % of all infected within that age class
+activity_table <- data %>%
+  group_by(age_class, ActNEW) %>%
   summarise(
-    n_total    = n(),
-    n_infected = sum(infected_bin == 1, na.rm = TRUE),
+    n_total      = n(),
+    n_infected   = sum(infected_bin == 1, na.rm = TRUE),
     pct_infected = round(100 * n_infected / n_total, 1),
     .groups = "drop"
   ) %>%
-  arrange(desc(n_total))
+  group_by(age_class) %>%
+  mutate(
+    pct_of_infected = round(100 * n_infected / sum(n_infected), 1)
+  ) %>%
+  ungroup() %>%
+  arrange(age_class, desc(n_total))
 
-print(psac_by_activity)
+print(activity_table)
 
-# --- Of all infected PSAC: breakdown by activity type ---
-psac_infected_activity <- data %>%
-  filter(age_class == "PSAC", infected_bin == 1) %>%
-  count(ActNEW, name = "n_infected") %>%
-  mutate(pct_of_infected_psac = round(100 * n_infected / sum(n_infected), 1)) %>%
-  arrange(desc(n_infected))
+write.csv(activity_table, "activity_table.csv")
+# Summary stats by age class
+data %>%
+  group_by(age_class) %>%
+  summarise(
+    n_total    = n(),
+    n_infected = sum(infected_bin == 1, na.rm = TRUE),
+    prevalence = round(100 * n_infected / n_total, 1),
+    .groups = "drop"
+  ) %>%
+  print()
 
-print(psac_infected_activity)
+# --- Validation: do "None" activity participants = non-travellers? ---
+# Cross-tabulate ActNEW == "None" against travel_bin to check consistency.
+# Expectation: None activity should align with travel_bin == 0 (did not travel).
+cat("\n--- Validation: ActNEW 'None' vs travel_bin (all participants) ---\n")
+print(table(ActNEW = data$ActNEW, travel_bin = data$travel_bin))
 
-# Summary stats
-cat("Total PSAC:", sum(data$age_class == "PSAC"), "\n")
-cat("Total infected PSAC:", sum(data$age_class == "PSAC" & data$infected_bin == 1), "\n")
-cat("Overall PSAC prevalence:",
-    round(100 * mean(data$infected_bin[data$age_class == "PSAC"]), 1), "%\n")
+cat("\n--- Validation: ActNEW 'None' vs travel_bin (PSAC only) ---\n")
+print(table(
+  ActNEW     = data$ActNEW[data$age_class == "PSAC"],
+  travel_bin = data$travel_bin[data$age_class == "PSAC"]
+))
+
+# The small number with None + travel_bin==1 are local residents (same location)
+# who visit the site rarely but reported no specific activity purpose.
+cat("\nNone-activity participants with travel_bin==1: check residence\n")
+none_travelers <- data[
+  !is.na(data$ActNEW) & data$ActNEW == "None" & data$travel_bin == 1,
+]
+cat("n =", nrow(none_travelers), "\n")
+cat("Resident at same location:\n")
+print(table(none_travelers$Is.that.the.same.location.as.here., useNA = "always"))
+cat("Visit frequency:\n")
+print(table(none_travelers$Freq, useNA = "always"))
+cat("Age class:\n")
+print(table(none_travelers$age_class))

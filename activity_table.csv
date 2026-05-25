@@ -1,0 +1,15 @@
+"","age_class","ActNEW","n_total","n_infected","pct_infected","pct_of_infected"
+"1","Adult","None",106,30,28.3,30.9
+"2","Adult","TradeORVisit",71,28,39.4,28.9
+"3","Adult","Domestic",60,20,33.3,20.6
+"4","Adult","Occupation",22,15,68.2,15.5
+"5","Adult","Recreation",7,4,57.1,4.1
+"6","PSAC","None",79,26,32.9,57.8
+"7","PSAC","Domestic",27,8,29.6,17.8
+"8","PSAC","TradeORVisit",15,7,46.7,15.6
+"9","PSAC","Recreation",9,4,44.4,8.9
+"10","SAC","None",68,19,27.9,27.5
+"11","SAC","Domestic",43,15,34.9,21.7
+"12","SAC","TradeORVisit",37,16,43.2,23.2
+"13","SAC","Recreation",34,14,41.2,20.3
+"14","SAC","Occupation",7,5,71.4,7.2

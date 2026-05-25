@@ -2,8 +2,7 @@
 
 
 
-rm(list = ls())
-setwd("~/Library/Mobile Documents/com~apple~CloudDocs/HPGH/_PhD/Jess_data/data_manipulation")
+rm(list =ls())
 
 library(brms)
 library(tidybayes)
