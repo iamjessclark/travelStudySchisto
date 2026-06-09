@@ -446,7 +446,7 @@ spillover_results <- bind_rows(lapply(spillover_fracs, function(sf) {
   adj_diff <- rowMeans(adj_cf) - obs_pop
   s <- summ_fn(adj_diff)
   tibble(spillover_frac = sf,
-         scenario       = paste0(sf * 100, "% shared-water benefit transfer to non-travellers"),
+         scenario       = paste0(sf * 100, "% local waterway benefit transfer to non-daily travellers"),
          diff_med_pct   = s["med"],
          diff_lo_pct    = s["lo"],
          diff_hi_pct    = s["hi"])
