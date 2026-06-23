@@ -24,3 +24,9 @@ models/
 # Loose output files at root level
 prevalence.csv
 .positai
+
+# Private data — coordinates and original files with coordinates (not for GitHub)
+private_data/
+
+# Deprecated Google Maps script (contains hardcoded village coordinates)
+Maps.R
